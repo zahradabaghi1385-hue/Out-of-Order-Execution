@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Out-of-Order Execution | اجرای خارج از ترتیب</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Vazirmatn:wght@400;700&display=swap">
+<style>
+:root{--bg:#07120f;--panel:#0d211b;--line:#1f5a47;--grid:rgba(77,255,154,.07);--ink:#d9f5e8;--mut:#86b8a3;--a:#ffb347;--b:#3ad6ff;--g:#4dff9a;
+--fa:'Vazirmatn',Tahoma,sans-serif;--mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#eef5f1;--panel:#fff;--line:#9cc7b4;--grid:rgba(10,90,60,.08);--ink:#0d2a20;--mut:#44705e;--a:#b86a00;--b:#0a7a99;--g:#12834a}}
+:root[data-theme="light"]{--bg:#eef5f1;--panel:#fff;--line:#9cc7b4;--grid:rgba(10,90,60,.08);--ink:#0d2a20;--mut:#44705e;--a:#b86a00;--b:#0a7a99;--g:#12834a}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--ink);font-family:var(--fa);overflow:hidden;
+background-image:radial-gradient(ellipse 75% 65% at 50% 50%,color-mix(in srgb,var(--bg) 92%,transparent) 45%,transparent 100%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' fill='none' stroke='%232fbf7a' stroke-opacity='.25' stroke-width='1.5' stroke-linejoin='round'%3E%3Cpath d='M35 40H80L100 60H159M50 130V160L65 175H129M145 110H120L100 130V149M170 20V55M15 100H40'/%3E%3Ccircle cx='30' cy='40' r='5'/%3E%3Ccircle cx='164' cy='60' r='5'/%3E%3Ccircle cx='50' cy='125' r='5'/%3E%3Ccircle cx='134' cy='175' r='5'/%3E%3Ccircle cx='150' cy='110' r='5'/%3E%3Ccircle cx='100' cy='154' r='5'/%3E%3Ccircle cx='170' cy='15' r='5'/%3E%3Ccircle cx='10' cy='100' r='4'/%3E%3Ccircle cx='45' cy='100' r='4'/%3E%3Ccircle cx='30' cy='40' r='1.5' fill='%232fbf7a'/%3E%3Ccircle cx='150' cy='110' r='1.5' fill='%232fbf7a'/%3E%3Ccircle cx='50' cy='125' r='1.5' fill='%232fbf7a'/%3E%3C/svg%3E"),radial-gradient(ellipse at 15% 10%,rgba(58,214,255,.12),transparent 55%),radial-gradient(ellipse at 90% 95%,rgba(77,255,154,.12),transparent 50%);
+background-size:auto,200px 200px,auto,auto}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+html.en .f,html.fa .e{display:none}
+html.en body{font-family:var(--mono)}
+#bar{position:fixed;top:env(safe-area-inset-top,0px);left:0;height:3px;background:linear-gradient(90deg,var(--b),var(--g));transition:width .3s;z-index:11}
+.slide{position:absolute;inset:0;padding:clamp(18px,4vw,56px) clamp(16px,6vw,80px) 84px;display:none;flex-direction:column;justify-content:center;gap:16px;overflow-y:auto;animation:in .35s ease}
+.slide.on{display:flex}
+@keyframes in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+h1{font-size:clamp(28px,6vw,60px);margin:0;line-height:1.25}
+h2{font-size:clamp(22px,3.6vw,38px);margin:0;color:var(--g);display:flex;gap:12px;align-items:center}
+h2::before{content:"";width:12px;height:12px;background:var(--a);flex:none;box-shadow:0 0 12px var(--a)}
+p,li{font-size:clamp(15px,2.2vw,22px);line-height:1.9;margin:0}
+ul{margin:0;padding-inline-start:1.2em}
+li{margin-bottom:6px}
+li::marker{color:var(--a)}
+.mut{color:var(--mut)}
+.tag{font-family:var(--mono);color:var(--b);letter-spacing:.12em;font-size:clamp(20px,3vw,32px);font-weight:700}
+pre,.code{direction:ltr;text-align:left;font-family:var(--mono);background:var(--panel);border:1px solid var(--line);border-inline-start:4px solid var(--b);padding:12px 16px;margin:0;font-size:clamp(12px,1.8vw,18px);line-height:1.7;overflow-x:auto;border-radius:6px}
+.cm{color:var(--mut)}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.card{flex:1 1 200px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;position:relative}
+.card::after{content:"";position:absolute;top:10px;inset-inline-end:10px;width:8px;height:8px;border-radius:50%;background:var(--c,var(--g));box-shadow:0 0 8px var(--c,var(--g))}
+.card b{display:block;color:var(--c,var(--g));margin-bottom:4px;font-size:clamp(15px,2.2vw,21px)}
+.card span{font-size:clamp(13px,1.9vw,18px);line-height:1.8}
+.st{flex:1 1 180px;text-align:center;padding:16px 10px;border:2px solid var(--c);border-radius:8px;background:var(--panel)}
+.st b{display:block;color:var(--c);font-size:clamp(16px,2.4vw,24px)}
+.st small{font-size:clamp(12px,1.7vw,16px);color:var(--mut)}
+.lbl{font-family:var(--mono);color:var(--a);font-size:14px;direction:ltr;text-align:left}
+#nav{position:fixed;bottom:0;inset-inline:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));display:flex;justify-content:center;align-items:center;gap:10px;direction:ltr;background:linear-gradient(transparent,var(--bg) 55%);z-index:9}
+#nav button{font-family:var(--mono);background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:9px 16px;font-size:16px;cursor:pointer}
+#nav button:hover{border-color:var(--g);color:var(--g)}
+#cnt{font-family:var(--mono);color:var(--mut);font-size:15px;min-width:72px;text-align:center}
+#pg{display:flex;align-items:center;gap:18px}
+#lg{position:absolute;left:16px;bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+@media (max-width:520px){#pg{gap:8px}#cnt{min-width:56px}}
+.ttl{display:flex;gap:36px;align-items:center;flex-wrap:wrap;position:relative;z-index:1}
+.tx{flex:1 1 320px;display:flex;flex-direction:column;gap:16px}
+.qrbox{background:#fff;padding:14px;border-radius:10px;text-align:center;border:4px solid var(--g);box-shadow:0 0 28px rgba(77,255,154,.35);width:clamp(210px,28vw,340px);margin-inline:auto}
+#qr img,#qr canvas{width:100%!important;height:auto!important;display:block}
+.qrbox p{font-size:clamp(13px,1.7vw,18px);line-height:1.6;margin-top:10px;color:#07120f;font-weight:700}
+.qrbox code{direction:ltr;display:block;font-family:var(--mono);font-size:10px;word-break:break-all;color:#07120f;margin-top:4px}
+/* new */
+p code,li code,.card code{font-family:var(--mono);color:var(--b);direction:ltr;unicode-bidi:isolate;font-size:.9em}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{width:100%;border-collapse:collapse;font-size:clamp(12px,1.7vw,18px)}
+th,td{padding:7px 12px;border-bottom:1px solid var(--line);line-height:1.6;text-align:start}
+th{color:var(--g);background:color-mix(in srgb,var(--g) 10%,var(--panel))}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--a);white-space:nowrap;font-family:var(--mono)}
+.note{border-inline-start:4px solid var(--a);background:var(--panel);padding:12px 16px;border-radius:6px}
+.nl{list-style:none;padding:0}
+.nl li::marker{content:""}
+.mid{flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px}
+.ty{margin-left:auto;margin-right:clamp(0px,2vw,28px);width:fit-content;color:var(--g);font-size:clamp(18px,2.6vw,28px);font-weight:700}
+
+/* title-slide motion: drifting circuit traces + travelling light around the QR card */
+@property --ang{syntax:"<angle>";initial-value:0deg;inherits:false}
+.qr-stage{position:relative;flex:0 1 auto;width:clamp(230px,30vw,360px);margin-inline:auto;display:grid;place-items:center;isolation:isolate}
+.qr-stage .qrbox{position:relative;z-index:1;width:100%;animation:qrGlow 3.6s ease-in-out infinite}
+.qr-stage::before,.qr-stage::after{content:"";position:absolute;pointer-events:none;z-index:-1}
+.qr-stage::before{inset:-64px -52px;
+ background:
+  linear-gradient(90deg,transparent 0 12%,color-mix(in srgb,var(--b) 80%,transparent) 12.5%,transparent 13% 45%,color-mix(in srgb,var(--g) 80%,transparent) 45.5%,transparent 46%),
+  linear-gradient(0deg,transparent 0 22%,color-mix(in srgb,var(--g) 80%,transparent) 22.5%,transparent 23% 70%,color-mix(in srgb,var(--b) 75%,transparent) 70.5%,transparent 71%);
+ background-size:180px 140px,160px 180px;
+ -webkit-mask-image:radial-gradient(closest-side,#000 52%,transparent 100%);mask-image:radial-gradient(closest-side,#000 52%,transparent 100%);
+ opacity:.8;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--b) 60%,transparent));
+ animation:circuitDrift 9s linear infinite}
+.qr-stage::after{inset:-14px;border-radius:20px;padding:3px;
+ background:conic-gradient(from var(--ang),transparent 0 62%,var(--b) 80%,var(--g) 92%,transparent 100%);
+ -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+ mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+ filter:drop-shadow(0 0 8px var(--g));animation:sweep 4.5s linear infinite}
+@keyframes circuitDrift{from{background-position:0 0,0 0}to{background-position:180px 140px,-160px 180px}}
+@keyframes sweep{to{--ang:360deg}}
+@keyframes qrGlow{0%,100%{box-shadow:0 0 22px rgba(77,255,154,.28)}50%{box-shadow:0 0 42px rgba(58,214,255,.55)}}
+@media (prefers-reduced-motion:reduce){.qr-stage::before,.qr-stage::after,.qr-stage .qrbox{animation:none}}
+
+/* callouts / boxes */
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:clamp(12px,2vw,22px) clamp(16px,2.6vw,30px);display:flex;flex-direction:column;gap:10px}
+.box li:last-child{margin-bottom:0}
+.hl{font-weight:700;color:var(--mut);font-size:clamp(14px,1.9vw,19px);line-height:1.8;display:flex;gap:10px;align-items:flex-start}
+.hl::before{content:"";width:9px;height:9px;background:var(--a);flex:none;margin-top:.75em;box-shadow:0 0 10px var(--a)}
+.cards li{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:clamp(10px,1.6vw,16px) clamp(14px,2.2vw,24px);margin-bottom:12px}
+.cards li:last-child{margin-bottom:0}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+
+<!-- 1 -->
+<section class="slide on">
+  <div class="ttl"><div class="tx">
+ <div class="tag"><span class="f">معماری کامپیوتر</span><span class="e">// COMPUTER ARCHITECTURE</span></div>
+ <h1><span class="f">اجرای خارج از ترتیب</span><span class="e">Out-of-Order Execution</span></h1>
+ <p class="mut"><span class="f">اجرای هوشمندانهٔ دستورها برای افزایش بهره‌وری پردازنده</span><span class="e">Smart instruction execution to make the processor more efficient</span></p>
+ <p class="mut"><span class="f">زهرا دباغی · استاد: رادمان علی‌زاده · مرجع: Patterson &amp; Hennessy</span><span class="e">Zahra Dabbagh · Instructor: Radman Alizadeh · Source: Patterson &amp; Hennessy</span></p>
+ </div>
+ <div class="qr-stage"><div class="qrbox"><div id="qr"></div>
+  <p><span class="f">برای باز کردن اسلایدها روی گوشی اسکن کنید</span><span class="e">Scan to open the slides on your phone</span></p>
+  <code id="qrurl"></code></div></div>
+ </div>
+</section>
+
+<!-- 2 -->
+<section class="slide">
+ <h2><span class="f">مشکل اجرای ترتیبی</span><span class="e">The problem with in-order execution</span></h2>
+ <pre>lw  x1, 0(x2)
+add x3, x1, x4
+sub x5, x6, x7
+and x8, x9, x10</pre>
+ <ul>
+  <li><span class="f"><code>lw</code>: دریافت داده از حافظه</span><span class="e"><code>lw</code>: fetches data from memory</span></li>
+  <li><span class="f"><code>add</code>: وابسته به نتیجهٔ <code>lw</code></span><span class="e"><code>add</code>: depends on the result of <code>lw</code></span></li>
+  <li><span class="f"><code>sub</code> و <code>and</code>: مستقل از <code>lw</code></span><span class="e"><code>sub</code> and <code>and</code>: independent of <code>lw</code></span></li>
+ </ul>
+ <p class="hl"><span class="f"><b>مشکل:</b> انتظار یک دستور می‌تواند مانع اجرای دستورهای مستقل شود.</span><span class="e"><b>Problem:</b> one instruction waiting can block independent instructions from running.</span></p>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+ <h2><span class="f">ایدهٔ اصلی OOO</span><span class="e">The main idea of OOO</span></h2>
+ <div class="box"><ul>
+  <li><span class="f">دریافت دستورها به ترتیب برنامه</span><span class="e">Fetch instructions in program order</span></li>
+  <li><span class="f">اجرای دستورهای آماده، مستقل از ترتیب اولیه</span><span class="e">Execute ready instructions, regardless of the original order</span></li>
+  <li><span class="f">حفظ وابستگی‌های واقعی میان دستورها</span><span class="e">Preserve the true dependencies between instructions</span></li>
+  <li><span class="f">تأیید نهایی نتایج به ترتیب برنامه</span><span class="e">Finalize (commit) the results in program order</span></li>
+ </ul></div>
+ <p class="hl"><span class="f"><b>هدف:</b> کاهش زمان انتظار و استفادهٔ بهتر از واحدهای اجرایی</span><span class="e"><b>Goal:</b> less waiting time and better use of the execution units</span></p>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+ <h2><span class="f">جدول روند کلی اجرای OOO</span><span class="e">Overview of the OOO execution flow</span></h2>
+ <div class="tw"><table>
+  <thead><tr>
+   <th><span class="f">مرحله</span><span class="e">Stage</span></th>
+   <th><span class="f">عملیات</span><span class="e">Operation</span></th>
+   <th><span class="f">وظیفه</span><span class="e">Role</span></th></tr></thead>
+  <tbody>
+   <tr><td><span class="f">۱</span><span class="e">1</span> · <bdi>Fetch</bdi></td><td><span class="f">دریافت دستور</span><span class="e">Fetch the instruction</span></td><td><span class="f">خواندن دستور از حافظهٔ دستور</span><span class="e">Read the instruction from instruction memory</span></td></tr>
+   <tr><td><span class="f">۲</span><span class="e">2</span> · <bdi>Decode</bdi></td><td><span class="f">رمزگشایی</span><span class="e">Decoding</span></td><td><span class="f">تشخیص نوع دستور و عملوندها</span><span class="e">Identify the instruction type and its operands</span></td></tr>
+   <tr><td><span class="f">۳</span><span class="e">3</span> · <bdi>Rename</bdi></td><td><span class="f">تغییر نام ثبات</span><span class="e">Register renaming</span></td><td><span class="f">حذف وابستگی‌های نامی</span><span class="e">Remove name dependencies</span></td></tr>
+   <tr><td><span class="f">۴</span><span class="e">4</span> · <bdi>Dispatch</bdi></td><td><span class="f">ارسال دستور</span><span class="e">Send the instruction</span></td><td><span class="f">قرار دادن دستور در ساختارهای اجرایی</span><span class="e">Place the instruction in the execution structures</span></td></tr>
+   <tr><td><span class="f">۵</span><span class="e">5</span> · <bdi>Issue / Schedule</bdi></td><td><span class="f">انتخاب دستور آماده</span><span class="e">Pick a ready instruction</span></td><td><span class="f">بررسی آماده‌بودن عملوندها</span><span class="e">Check that the operands are ready</span></td></tr>
+   <tr><td><span class="f">۶</span><span class="e">6</span> · <bdi>Execute</bdi></td><td><span class="f">اجرا</span><span class="e">Execution</span></td><td><span class="f">انجام عملیات توسط واحد اجرایی</span><span class="e">The execution unit performs the operation</span></td></tr>
+   <tr><td><span class="f">۷</span><span class="e">7</span> · <bdi>Write Back</bdi></td><td><span class="f">ثبت نتیجه</span><span class="e">Write the result</span></td><td><span class="f">انتشار نتیجه برای دستورهای منتظر</span><span class="e">Broadcast the result to waiting instructions</span></td></tr>
+   <tr><td><span class="f">۸</span><span class="e">8</span> · <bdi>Commit</bdi></td><td><span class="f">تأیید نهایی</span><span class="e">Final approval</span></td><td><span class="f">ثبت نتایج به ترتیب برنامه</span><span class="e">Record the results in program order</span></td></tr>
+  </tbody></table></div>
+ <p class="mut" style="font-size:clamp(13px,1.8vw,18px)"><span class="f"><b>نکته:</b> مراحل داخلی ممکن است در پیاده‌سازی‌های مختلف پردازنده متفاوت باشند؛ اجرای خارج از ترتیب عمدتاً در مرحلهٔ انتخاب و اجرا دیده می‌شود، در حالی که Commit ترتیب برنامه را حفظ می‌کند.</span><span class="e"><b>Note:</b> the internal stages may differ between processor implementations; out-of-order execution mainly shows up in the issue and execute stages, while Commit preserves program order.</span></p>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+ <h2><span class="f">تفاوت ترتیب اجرا و ترتیب برنامه</span><span class="e">Execution order vs. program order</span></h2>
+ <div class="row">
+  <div class="card" style="--c:var(--b)"><b>Program Order</b><span class="f">ترتیب اصلی دستورها در برنامه</span><span class="e">The original order of the instructions in the program</span></div>
+  <div class="card" style="--c:var(--a)"><b>Execution Order</b><span class="f">ترتیبی که دستورها واقعاً اجرا می‌شوند</span><span class="e">The order in which the instructions actually execute</span></div>
+  <div class="card" style="--c:var(--g)"><b>Commit Order</b><span class="f">ترتیب تأیید نهایی نتایج</span><span class="e">The order in which the results are finalized</span></div>
+ </div>
+ <p class="hl"><span class="f">در OOO، ترتیب اجرا می‌تواند تغییر کند؛ اما ترتیب Commit حفظ می‌شود.</span><span class="e">In OOO the execution order can change, but the Commit order is preserved.</span></p>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+ <h2><span class="f">وابستگی دستورها</span><span class="e">Instruction dependencies</span></h2>
+ <div class="row">
+  <div class="card" style="--c:var(--a)"><b>RAW · Read After Write</b><span class="f">وابستگی واقعی داده؛ دستور بعدی به نتیجهٔ قبلی نیاز دارد.</span><span class="e">True data dependency; the next instruction needs the result of the previous one.</span></div>
+  <div class="card" style="--c:var(--b)"><b>WAR · Write After Read</b><span class="f">وابستگی نامی؛ نوشتن دستور بعدی ممکن است با خواندن قبلی تداخل داشته باشد.</span><span class="e">Name dependency; the next instruction's write may clash with the previous instruction's read.</span></div>
+  <div class="card" style="--c:var(--g)"><b>WAW · Write After Write</b><span class="f">وابستگی نامی؛ چند دستور در یک نام ثبات می‌نویسند.</span><span class="e">Name dependency; several instructions write to the same register name.</span></div>
+ </div>
+ <p class="hl"><span class="f">Register Renaming وابستگی‌های نامی را برطرف می‌کند، اما وابستگی واقعی RAW را حفظ می‌کند.</span><span class="e">Register Renaming removes the name dependencies, but keeps the true RAW dependency.</span></p>
+</section>
+
+<!-- 7 -->
+<section class="slide">
+ <h2><span class="f">تغییر نام ثبات‌ها (Register Renaming)</span><span class="e">Register Renaming</span></h2>
+ <div class="row">
+  <div style="flex:1 1 240px;display:flex;flex-direction:column;gap:8px">
+   <div class="mut"><span class="f">قبل از تغییر نام</span><span class="e">Before renaming</span></div>
+   <pre>I1: add x1, x2, x3
+I2: sub x4, x1, x5
+I3: add x1, x6, x7</pre></div>
+  <div style="flex:1 1 240px;display:flex;flex-direction:column;gap:8px">
+   <div class="mut"><span class="f">بعد از تغییر نام</span><span class="e">After renaming</span></div>
+   <pre style="border-inline-start-color:var(--g)">I1: add p10, x2, x3
+I2: sub p11, p10, x5
+I3: add p12, x6, x7</pre></div>
+ </div>
+ <ul>
+  <li><span class="f"><code>x1</code>: نام منطقی ثبات</span><span class="e"><code>x1</code>: a logical register name</span></li>
+  <li><span class="f"><code>p10</code>، <code>p11</code>، <code>p12</code>: ثبات‌های فیزیکی</span><span class="e"><code>p10</code>, <code>p11</code>, <code>p12</code>: physical registers</span></li>
+  <li><span class="f">وابستگی واقعی I2 به نتیجهٔ I1 حفظ می‌شود.</span><span class="e">The true dependency of I2 on the result of I1 is preserved.</span></li>
+  <li><span class="f">I3 دیگر برای نوشتن نتیجه مجبور نیست منتظر I1 بماند.</span><span class="e">I3 no longer has to wait for I1 in order to write its result.</span></li>
+ </ul>
+</section>
+
+<!-- 8 -->
+<section class="slide">
+ <h2><span class="f">اجزای اصلی سخت‌افزار OOO</span><span class="e">Main hardware components of OOO</span></h2>
+ <div class="row">
+  <div class="card" style="--c:var(--b)"><b>Rename Table</b><span class="f">نگاشت ثبات‌های منطقی به ثبات‌های فیزیکی</span><span class="e">Maps logical registers to physical registers</span></div>
+  <div class="card" style="--c:var(--a)"><b>Reservation Stations</b><span class="f">نگهداری دستورها تا آماده‌شدن عملوندها</span><span class="e">Hold instructions until their operands are ready</span></div>
+  <div class="card" style="--c:var(--g)"><b>Reorder Buffer (ROB)</b><span class="f">حفظ ترتیب برنامه و مدیریت Commit</span><span class="e">Keeps program order and manages Commit</span></div>
+  <div class="card" style="--c:var(--b)"><b>Execution Units</b><span class="f">اجرای عملیات محاسباتی و منطقی</span><span class="e">Execute the arithmetic and logic operations</span></div>
+ </div>
+</section>
+
+<!-- 9 -->
+<section class="slide">
+ <h2><span class="f">مزایای اجرای خارج از ترتیب</span><span class="e">Benefits of out-of-order execution</span></h2>
+ <div class="box"><ul>
+  <li><span class="f">کاهش زمان بیکاری واحدهای اجرایی</span><span class="e">Less idle time for the execution units</span></li>
+  <li><span class="f">استفاده از زمان انتظار حافظه برای اجرای کارهای مستقل</span><span class="e">Using memory wait time to run independent work</span></li>
+  <li><span class="f">افزایش بهره‌برداری از منابع پردازنده</span><span class="e">Better utilization of the processor's resources</span></li>
+  <li><span class="f">بهبود عملکرد بسیاری از برنامه‌های واقعی</span><span class="e">Better performance for many real programs</span></li>
+ </ul></div>
+</section>
+
+<!-- 10 -->
+<section class="slide">
+ <h2><span class="f">هزینه‌ها و محدودیت‌ها</span><span class="e">Costs and limitations</span></h2>
+ <div class="box"><ul>
+  <li><span class="f">طراحی سخت‌افزاری پیچیده‌تر</span><span class="e">More complex hardware design</span></li>
+  <li><span class="f">مصرف انرژی و فضای تراشهٔ بیشتر</span><span class="e">More power consumption and more chip area</span></li>
+  <li><span class="f">محدودیت ناشی از وابستگی‌های واقعی</span><span class="e">A limit imposed by true dependencies</span></li>
+  <li><span class="f">احتمال دورریختن کارهای حدسی پس از پیش‌بینی اشتباه</span><span class="e">Speculative work may be thrown away after a wrong prediction</span></li>
+ </ul></div>
+ <p class="hl"><span class="f">OOO سرعت را افزایش می‌دهد، اما تضمین نمی‌کند همهٔ برنامه‌ها سریع‌تر اجرا شوند.</span><span class="e">OOO increases speed, but it does not guarantee that every program runs faster.</span></p>
+</section>
+
+<!-- 11 -->
+<section class="slide">
+ <h2><span class="f">OOO و امنیت پردازنده</span><span class="e">OOO and processor security</span></h2>
+ <div class="box"><p style="color:var(--a);font-weight:700"><span class="f"><bdi>Speculative Execution</bdi> — اجرای حدسی</span><span class="e">Speculative Execution</span></p>
+ <ul>
+  <li><span class="f">اجرای دستورها بر اساس پیش‌بینی پردازنده</span><span class="e">Executing instructions based on the processor's prediction</span></li>
+  <li><span class="f">کنارگذاشتن نتایج معماری در صورت پیش‌بینی اشتباه</span><span class="e">Discarding the architectural results if the prediction was wrong</span></li>
+  <li><span class="f">امکان باقی‌ماندن برخی آثار جانبی ریزمعماری، مانند تغییر وضعیت کش</span><span class="e">Some microarchitectural side effects may remain, such as a change in cache state</span></li>
+ </ul></div>
+ <p class="hl"><span class="f"><b>نمونه:</b> آسیب‌پذیری‌های Spectre و Meltdown</span><span class="e"><b>Example:</b> the Spectre and Meltdown vulnerabilities</span></p>
+</section>
+
+<!-- 12 -->
+<section class="slide">
+ <h2><span class="f">جمع‌بندی</span><span class="e">Summary</span></h2>
+ <div class="box"><ul>
+  <li><span class="f">دستورهای مستقل می‌توانند خارج از ترتیب اولیه اجرا شوند.</span><span class="e">Independent instructions can execute outside the original order.</span></li>
+  <li><span class="f">تغییر نام ثبات‌ها وابستگی‌های نامی را حذف می‌کند.</span><span class="e">Register renaming removes name dependencies.</span></li>
+  <li><span class="f">وابستگی‌های واقعی داده همچنان رعایت می‌شوند.</span><span class="e">True data dependencies are still respected.</span></li>
+  <li><span class="f">نتایج به ترتیب برنامه تأیید نهایی می‌شوند.</span><span class="e">Results are committed in program order.</span></li>
+ </ul></div>
+ <p class="hl"><span class="f"><bdi>Out-of-Order Execution</bdi>: اجرای انعطاف‌پذیر، نتیجهٔ صحیح.</span><span class="e">Out-of-Order Execution: flexible execution, correct result.</span></p>
+</section>
+
+<!-- 13 -->
+<section class="slide">
+ <h2><span class="f">پرسش</span><span class="e">Question</span></h2>
+ <p><span class="f">فرض کنید دستورهای زیر به ترتیب در برنامه قرار دارند:</span><span class="e">Suppose the following instructions appear in this order in a program:</span></p>
+ <pre>I1: ADD R1, R2, R3
+I2: SUB R4, R5, R6
+I3: ADD R7, R1, R4</pre>
+ <p class="mut"><span class="f">با توجه به مفهوم Out-of-Order Execution پاسخ دهید:</span><span class="e">Using the concept of Out-of-Order Execution, answer:</span></p>
+ <ul class="nl">
+  <li><span class="f">۱. آیا دستور <code>I2</code> می‌تواند قبل از <code>I1</code> اجرا شود؟ چرا؟</span><span class="e">1. Can <code>I2</code> execute before <code>I1</code>? Why?</span></li>
+  <li><span class="f">۲. آیا دستور <code>I3</code> می‌تواند قبل از هر دو دستور <code>I1</code> و <code>I2</code> اجرا شود؟</span><span class="e">2. Can <code>I3</code> execute before both <code>I1</code> and <code>I2</code>?</span></li>
+  <li><span class="f">۳. آیا اجرای خارج از ترتیب به معنی تغییر ترتیب نهایی دستورهاست؟</span><span class="e">3. Does out-of-order execution mean the final order of the instructions changes?</span></li>
+ </ul>
+</section>
+
+<!-- 14 -->
+<section class="slide">
+ <div class="mid">
+  <h2><span class="f">پاسخ پرسش</span><span class="e">Answer</span></h2>
+  <ul class="nl cards">
+   <li><span class="f">۱. بله. دستور <code>I2</code> به نتیجهٔ <code>I1</code> وابسته نیست؛ بنابراین اگر منابع پردازنده آماده باشند، می‌تواند زودتر اجرا شود.</span><span class="e">1. Yes. <code>I2</code> does not depend on the result of <code>I1</code>, so if the processor's resources are available, it can execute earlier.</span></li>
+   <li><span class="f">۲. خیر. دستور <code>I3</code> به نتیجهٔ هر دو دستور <code>I1</code> و <code>I2</code> وابسته است؛ چون از مقادیر <code>R1</code> و <code>R4</code> استفاده می‌کند. پس باید منتظر آماده‌شدن نتایج آن‌ها بماند.</span><span class="e">2. No. <code>I3</code> depends on the results of both <code>I1</code> and <code>I2</code>, because it uses the values of <code>R1</code> and <code>R4</code>. So it must wait until their results are ready.</span></li>
+   <li><span class="f">۳. خیر. ترتیب اجرا می‌تواند تغییر کند، اما در پردازنده‌های دارای سازوکار نهایی‌سازی مرتب، دستورها به ترتیب اصلی برنامه Commit می‌شوند.</span><span class="e">3. No. The execution order can change, but in processors with an in-order finalization mechanism, instructions are committed in the original program order.</span></li>
+  </ul>
+  <p class="hl"><span class="f"><b>نکتهٔ کلیدی:</b> پردازنده دستورهای مستقل را زودتر اجرا می‌کند، اما وابستگی‌های واقعی را نادیده نمی‌گیرد.</span><span class="e"><b>Key point:</b> the processor runs independent instructions earlier, but never ignores true dependencies.</span></p>
+ </div>
+ <p class="ty"><span class="f">ممنون از توجه شما</span><span class="e">Thank you for your attention</span></p>
+</section>
+
+<div id="nav">
+ <button id="lg">EN</button>
+ <div id="pg">
+  <button id="pv" aria-label="Previous">←</button>
+  <span id="cnt"></span>
+  <button id="nx" aria-label="Next">→</button>
+ </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function(){
+var S=[].slice.call(document.querySelectorAll('.slide')),i=0,H=document.documentElement;
+
+function show(n){i=Math.max(0,Math.min(S.length-1,n));S.forEach(function(s,k){s.classList.toggle('on',k===i)});
+ document.getElementById('cnt').textContent=(i+1)+' / '+S.length;
+ document.getElementById('bar').style.width=((i+1)/S.length*100)+'%';
+}
+function lang(l){H.className=l;H.lang=l;H.dir=l==='fa'?'rtl':'ltr';
+ document.getElementById('lg').textContent=l==='fa'?'EN':'فا';
+ try{localStorage.setItem('ooo-lang',l)}catch(e){}}
+var saved='fa';try{saved=localStorage.getItem('ooo-lang')||'fa'}catch(e){}
+lang(saved);show(0);
+var U=location.href.split('#')[0];document.getElementById('qrurl').textContent=U.replace(/^https?:\/\//,'');
+try{new QRCode(document.getElementById('qr'),{text:U,width:512,height:512,colorDark:'#07120f',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})}catch(e){}
+document.getElementById('nx').onclick=function(){show(i+1)};
+document.getElementById('pv').onclick=function(){show(i-1)};
+document.getElementById('lg').onclick=function(){lang(H.lang==='fa'?'en':'fa')};
+document.addEventListener('keydown',function(e){
+ if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' ')show(i+1);
+ if(e.key==='ArrowLeft'||e.key==='PageUp')show(i-1);});
+var x0=null;
+document.addEventListener('touchstart',function(e){x0=e.touches[0].clientX},{passive:true});
+document.addEventListener('touchend',function(e){if(x0===null)return;var d=e.changedTouches[0].clientX-x0;
+ if(Math.abs(d)>60)show(d<0?i+1:i-1);x0=null},{passive:true});
+})();
+</script>
+</body>
+</html>
